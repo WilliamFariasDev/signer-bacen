@@ -13,32 +13,43 @@ import (
 	dsig "github.com/russellhaering/goxmldsig"
 )
 
-// Sign assina um documento XML e insere um <Signature> envelopado.
+// Sign assina um documento XML e insere um elemento <ds:Signature> enveloped
+// (assinatura envelopada: a própria assinatura é inserida dentro do documento
+// assinado). A função implementa os passos necessários para construir um
+// SignedInfo com duas referências (KeyInfo e Root), calcular digests, assinar
+// com RSA-SHA256 e anexar <ds:Signature> ao elemento raiz.
 func (s *Signer) Sign(xmlData []byte) ([]byte, error) {
 	doc := etree.NewDocument()
 	if err := doc.ReadFromBytes(xmlData); err != nil {
 		return nil, fmt.Errorf("failed to parse XML: %w", err)
 	}
 
+	// Obtém o conteúdo do elemento raiz do XML
 	root := doc.Root()
 	if root == nil {
 		return nil, errors.New("empty XML document")
 	}
 
+	// Preparar o documento: remover quaisquer elementos <Signature> (transform enveloped)
 	removeSignatureElements(root)
+
+	// Preparar o canonicalizador Exclusive C14N (sem prefixos adicionais)
 	canon := dsig.MakeC14N10ExclusiveCanonicalizerWithPrefixList("")
 
-	// 4.2) Digest do elemento raiz (aplicando enveloped: remove <Signature> antes da c14n)
+	// Realiza transform de enveloped signature
 	rootCopy := root.Copy()
 	removeSignatureElements(rootCopy)
+
+	// Realiza transform de canonicalização
 	rootCanon, err := canon.Canonicalize(rootCopy)
 	if err != nil {
 		return nil, fmt.Errorf("failed to canonicalize root: %w", err)
 	}
+	// Calcula o digest SHA256 do root canonicizado
 	rootDigest := sha256.Sum256(rootCanon)
 	rootDigestB64 := base64.StdEncoding.EncodeToString(rootDigest[:])
 
-	// 5.2) Referência ao ROOT (URI="") com Enveloped + Exclusive C14N
+	// Construir a <ds:Reference> ao ROOT (URI="") com os transforms:
 	refRoot := etree.NewElement("ds:Reference")
 	refRoot.CreateAttr("URI", "")
 	refRootTransforms := etree.NewElement("ds:Transforms")
@@ -56,7 +67,7 @@ func (s *Signer) Sign(xmlData []byte) ([]byte, error) {
 	dvRoot.SetText(rootDigestB64)
 	refRoot.AddChild(dvRoot)
 
-	// 2) Monta <ds:KeyInfo Id="..."><ds:X509Data><ds:X509IssuerSerial>…</ds:X509IssuerSerial></ds:X509Data></ds:KeyInfo> e adiciona DENTRO de <ds:Signature>
+	// Constói o elemento <ds:KeyInfo Id="..."> contendo <ds:X509Data> e <ds:X509IssuerSerial>
 	keyID := randomID()
 	keyInfo := etree.NewElement("ds:KeyInfo")
 	keyInfo.CreateAttr("Id", keyID)
@@ -72,17 +83,17 @@ func (s *Signer) Sign(xmlData []byte) ([]byte, error) {
 	x509Data.AddChild(issuerSerial)
 	keyInfo.AddChild(x509Data)
 
-	// 4.1) Digest do KeyInfo no contexto do documento
-
+	// Realiza o transform de canonicalização
 	kiCopy := keyInfo.Copy()
 	kiCanon, err := canon.Canonicalize(kiCopy)
 	if err != nil {
 		return nil, fmt.Errorf("failed to canonicalize KeyInfo: %w", err)
 	}
+	// Calcula o digest SHA256 do KeyInfo canonicizado
 	kiDigest := sha256.Sum256(kiCanon)
 	kiDigestB64 := base64.StdEncoding.EncodeToString(kiDigest[:])
 
-	// 5.1) Referência ao KeyInfo (URI="#<Id>") com Exclusive C14N
+	// Constói o elemento <ds:Reference> para o KeyInfo (URI="#<Id>") com o
 	refKI := etree.NewElement("ds:Reference")
 	refKI.CreateAttr("URI", "#"+keyID)
 	refKITransforms := etree.NewElement("ds:Transforms")
@@ -97,7 +108,7 @@ func (s *Signer) Sign(xmlData []byte) ([]byte, error) {
 	dvKI.SetText(kiDigestB64)
 	refKI.AddChild(dvKI)
 
-	// 3) Adiciona <ds:SignedInfo> (AINDA SEM referência) e anexa <Signature> ao root
+	// Constói o elemento <ds:SignedInfo> com CanonicalizationMethod e SignatureMethod
 	signedInfo := etree.NewElement("ds:SignedInfo")
 	signedInfo.CreateAttr("xmlns:ds", "http://www.w3.org/2000/09/xmldsig#")
 	cm := etree.NewElement("ds:CanonicalizationMethod")
@@ -106,16 +117,17 @@ func (s *Signer) Sign(xmlData []byte) ([]byte, error) {
 	sm.CreateAttr("Algorithm", "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256")
 	signedInfo.AddChild(cm)
 	signedInfo.AddChild(sm)
-	// 5) Agora sim, crie as DUAS <Reference> dentro de <SignedInfo>
+	// Anexa as duas <Reference> (KeyInfo e Root) dentro de <SignedInfo>.
 	signedInfo.AddChild(refKI)
 	signedInfo.AddChild(refRoot)
 
-	// 6) Canonicaliza o SignedInfo e assina (RSA-SHA256)
+	// Canonicaliza o SignedInfo
 	siCopy := signedInfo.Copy()
 	siCanon, err := canon.Canonicalize(siCopy)
 	if err != nil {
 		return nil, fmt.Errorf("failed to canonicalize SignedInfo: %w", err)
 	}
+	// Efetua a assinatura RSA-SHA256 do hash do SignedInfo canonicizado
 	siHash := sha256.Sum256(siCanon)
 	sigBytes, err := rsa.SignPKCS1v15(rand.Reader, s.privKey, crypto.SHA256, siHash[:])
 	if err != nil {
@@ -123,22 +135,20 @@ func (s *Signer) Sign(xmlData []byte) ([]byte, error) {
 	}
 	sigB64 := base64.StdEncoding.EncodeToString(sigBytes)
 
-	// 1) Constrói <ds:Signature> com namespace
+	// Constói o elemento <ds:Signature> com SignedInfo, SignatureValue e KeyInfo
 	signatureEl := etree.NewElement("ds:Signature")
 	signatureEl.CreateAttr("xmlns:ds", "http://www.w3.org/2000/09/xmldsig#")
 	signatureEl.AddChild(signedInfo)
 
+	// Adiciona <SignatureValue>
 	sigVal := etree.NewElement("ds:SignatureValue")
 	sigVal.SetText(sigB64)
 	signatureEl.AddChild(sigVal)
 	signatureEl.AddChild(keyInfo)
 
-	// Anexa <Signature> ao root AGORA, para que KeyInfo esteja no contexto final
+	// Anexa <Signature> ao root. Neste momento o documento contém o
+	// elemento <ds:Signature> completo e pode ser serializado.
 	root.AddChild(signatureEl)
-
-	// 4) Calcula digests
-
-	// pronto: root já contém <Signature> completo
 	out := etree.NewDocument()
 	out.SetRoot(root)
 

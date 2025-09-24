@@ -19,16 +19,29 @@ func (s *Signer) Verify(xmlData []byte) error {
 	if err := doc.ReadFromBytes(xmlData); err != nil {
 		return fmt.Errorf("failed to parse XML: %w", err)
 	}
+
+	// Obtém o conteúdo do elemento raiz do XML
 	root := doc.Root()
 	if root == nil {
 		return errors.New("empty XML document")
 	}
 
+	// Preparar o canonicalizador Exclusive C14N (sem prefixos adicionais)
 	canon := dsig.MakeC14N10ExclusiveCanonicalizerWithPrefixList("")
 
-	// Aplicar o transform “Enveloped Signature” no conteúdo;
+	// Realiza transform de enveloped signature
 	rootCopy := root.Copy()
 	removeSignatureElements(rootCopy)
+
+	// Realiza transform de canonicalização
+	rootCanon, err := canon.Canonicalize(rootCopy)
+	if err != nil {
+		return fmt.Errorf("failed to canonicalize root: %w", err)
+	}
+
+	// Calcula o digest SHA256 do root canonicizado
+	rootDigest := sha256.Sum256(rootCanon)
+	rootDigestB64 := base64.StdEncoding.EncodeToString(rootDigest[:])
 
 	// Encontra elemento Signature
 	var sigEl *etree.Element
@@ -43,6 +56,7 @@ func (s *Signer) Verify(xmlData []byte) error {
 	if sigEl == nil {
 		return errors.New("signature element not found")
 	}
+
 	// Extrai SignedInfo, SignatureValue e KeyInfo
 	var signedInfo *etree.Element
 	var signatureValue string
@@ -59,24 +73,19 @@ func (s *Signer) Verify(xmlData []byte) error {
 			}
 		}
 	}
+
 	if signedInfo == nil || keyInfo == nil || signatureValue == "" {
 		return errors.New("incomplete signature structure")
 	}
 
-	// canonizar o root
-	rootCanon, err := canon.Canonicalize(rootCopy)
-	if err != nil {
-		return fmt.Errorf("failed to canonicalize root: %w", err)
-	}
-	rootDigest := sha256.Sum256(rootCanon)
-	rootDigestB64 := base64.StdEncoding.EncodeToString(rootDigest[:])
-
-	// canonizar o KeyInfo
+	// Realiza o transform de canonicalização
 	kiCopy := keyInfo.Copy()
 	kiCanon, err := canon.Canonicalize(kiCopy)
 	if err != nil {
 		return fmt.Errorf("failed to canonicalize KeyInfo: %w", err)
 	}
+
+	// Calcula o digest SHA256 do KeyInfo canonicizado
 	kiDigest := sha256.Sum256(kiCanon)
 	kiDigestB64 := base64.StdEncoding.EncodeToString(kiDigest[:])
 
@@ -111,8 +120,7 @@ func (s *Signer) Verify(xmlData []byte) error {
 		return errors.New("missing digest values in SignedInfo")
 	}
 
-	// compara digest
-
+	// compara digest gerado com o do elemento Reference
 	if rootDigestB64 != rootDigestFromSig {
 		return errors.New("root digest mismatch")
 	}
@@ -126,22 +134,25 @@ func (s *Signer) Verify(xmlData []byte) error {
 		return fmt.Errorf("KeyInfo Id (%s) does not match reference URI (#%s)", idAttr.Value, kiURI)
 	}
 
+	// compara digest gerado com o do elemento Reference
 	if kiDigestB64 != kiDigestFromSig {
 		return errors.New("KeyInfo digest mismatch")
 	}
 
-	// Verifica assinatura sobre SignedInfo
-
+	// Realiza o transform de canonicalização de SignedInfo
 	siCopy := signedInfo.Copy()
 	siCanon, err := canon.Canonicalize(siCopy)
 	if err != nil {
 		return fmt.Errorf("failed to canonicalize SignedInfo: %w", err)
 	}
+
+	// Verifica a assinatura usando a chave pública do certificado
 	siHash := sha256.Sum256(siCanon)
 	sigBytes, err := base64.StdEncoding.DecodeString(signatureValue)
 	if err != nil {
 		return fmt.Errorf("signature value is not valid base64: %w", err)
 	}
+
 	pub, ok := s.cert.PublicKey.(*rsa.PublicKey)
 	if !ok {
 		return errors.New("certificate does not contain an RSA public key")

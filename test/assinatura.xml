@@ -1,0 +1,50 @@
+<CreateEntryRequest>
+    <Entry>
+        <Key>9d5719eb-7ad5-42af-8c73-06b1be8be451</Key>
+        <KeyType>EVP</KeyType>
+        <Account>
+            <Participant>12345678</Participant>
+            <Branch>0001</Branch>
+            <AccountNumber>1234567890</AccountNumber>
+            <AccountType>CACC</AccountType>
+            <OpeningDate>2023-08-24T14:15:22Z</OpeningDate>
+        </Account>
+        <Owner>
+            <Type>NATURAL_PERSON</Type>
+            <TaxIdNumber>12345678901</TaxIdNumber>
+            <Name>João da Silva</Name>
+        </Owner>
+    </Entry>
+    <Reason>USER_REQUESTED</Reason>
+    <RequestId>b1d2c3e3-f5a6-0718-293a-4b5c6d7e8fdd</RequestId>
+    <ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
+        <ds:SignedInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
+            <ds:CanonicalizationMethod Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+            <ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha256"/>
+            <ds:Reference URI="#KI3ecfdacd5140c983738cd5a4dbd8eff7">
+                <ds:Transforms>
+                    <ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+                </ds:Transforms>
+                <ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
+                <ds:DigestValue>wdNZNO8g6PolJFTp+t1ec7evqWCcwLCb5TzmMwaItv0=</ds:DigestValue>
+            </ds:Reference>
+            <ds:Reference URI="">
+                <ds:Transforms>
+                    <ds:Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>
+                    <ds:Transform Algorithm="http://www.w3.org/2001/10/xml-exc-c14n#"/>
+                </ds:Transforms>
+                <ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256"/>
+                <ds:DigestValue>cZVUBQaAOC3m/X5HaUYWD0hsTNA9pm5t+zqdh/zgKJs=</ds:DigestValue>
+            </ds:Reference>
+        </ds:SignedInfo>
+        <ds:SignatureValue>Z67fMWYGiZLYCOkAzbGT3h+RI0aJgzv8InFi7yQRUTXnDNLNwX5pTZhuLBo2nda3MyUX1j4/8829gZPGbqaOrU78glHknnYWK21bcZNWjGZqLPl45cbtyMvNnFgcOfYywG7QNyQj9EfT5x98Tzr3mbFxgz5Wjaf9PAfM1oJojBNV7tuK5sf6QaaIEjR/HQ9tjdcomICgeuL3Kad3BBsapQTJ0Y9wXMMboD3cxfPtyLz2IjZr7+d8UDVinPAkEy+xkg3vs+AGviio+IV9E75Jqspj7pCHXYIIJNFOoHuHanpUpEoJGMciSyf+a8/xLpgVUXwnhXYn9F2NJHtBwg8WXg==</ds:SignatureValue>
+        <ds:KeyInfo Id="KI3ecfdacd5140c983738cd5a4dbd8eff7" xmlns:ds="http://www.w3.org/2000/09/xmldsig#">
+            <ds:X509Data>
+                <ds:X509IssuerSerial>
+                    <ds:X509IssuerName>CN=lb_client,OU=IT,O=LB Bank,L=Rio de Janeiro,ST=Rio de Janeiro,C=BR</ds:X509IssuerName>
+                    <ds:X509SerialNumber>450518186573975058782928361123577150060554616351</ds:X509SerialNumber>
+                </ds:X509IssuerSerial>
+            </ds:X509Data>
+        </ds:KeyInfo>
+    </ds:Signature>
+</CreateEntryRequest>

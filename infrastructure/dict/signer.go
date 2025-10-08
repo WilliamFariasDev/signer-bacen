@@ -14,6 +14,7 @@ import (
 type Signer struct {
 	privKey *rsa.PrivateKey
 	cert    *x509.Certificate
+	store   *CertificateStore
 }
 
 var _ ports.Signer = (*Signer)(nil)
@@ -28,5 +29,25 @@ func NewSignerFromP12(p12byte []byte, password string) (*Signer, error) {
 	if !ok {
 		return nil, errors.New("only RSA private keys are supported")
 	}
-	return &Signer{privKey: rsaKey, cert: cert}, nil
+
+	store, err := LoadBacenCertificates(cert)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load BACEN certificates: %w", err)
+	}
+
+	return &Signer{privKey: rsaKey, cert: cert, store: store}, nil
+}
+
+// LoadBacenCertificates carrega os certificados raiz do BACEN.
+func LoadBacenCertificates(cert *x509.Certificate) (*CertificateStore, error) {
+	certStore := NewCertificateStore()
+
+	// Adiciona o certificado do signer (nosso) ao repositório de certificados confiáveis
+	certStore.AddCertificate(cert)
+
+	if err := certStore.LoadBacenCertificates(); err != nil {
+		return nil, err
+	}
+
+	return certStore, nil
 }

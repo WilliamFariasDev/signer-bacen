@@ -165,10 +165,23 @@ func (s *Signer) Verify(xmlData []byte) error {
 		return fmt.Errorf("signature value is not valid base64: %w", err)
 	}
 
-	// TODO buscar em um repositório local de certificados confiáveis, recuperar o certificado X.509 completo do emissor e então verificar a assinatura com a chave pública desse certificado
-	pub, ok := s.cert.PublicKey.(*rsa.PublicKey)
+	// Buscar em um repositório local de certificados confiáveis, recuperar o certificado X.509 completo do emissor e então verificar a assinatura com a chave pública desse certificado
+
+	// Obter certificado do emissor baseado no KeyInfo
+	issuerCert, err := s.store.GetCertificateFromKeyInfo(keyInfo)
+	if err != nil {
+		return fmt.Errorf("failed to get issuer certificate: %w", err)
+	}
+
+	// Validar o certificado
+	if err := s.store.ValidateCertificate(issuerCert); err != nil {
+		return fmt.Errorf("certificate validation failed: %w", err)
+	}
+
+	// Verificar a assinatura usando a chave pública do certificado do emissor
+	pub, ok := issuerCert.PublicKey.(*rsa.PublicKey)
 	if !ok {
-		return errors.New("certificate does not contain an RSA public key")
+		return errors.New("issuer certificate does not contain an RSA public key")
 	}
 	if err := rsa.VerifyPKCS1v15(pub, crypto.SHA256, siHash[:], sigBytes); err != nil {
 		return fmt.Errorf("signature verification failed: %w", err)

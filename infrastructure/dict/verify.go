@@ -167,19 +167,19 @@ func (s *Signer) Verify(xmlData []byte) error {
 
 	// Buscar em um repositório local de certificados confiáveis, recuperar o certificado X.509 completo do emissor e então verificar a assinatura com a chave pública desse certificado
 
-	// Validar o certificado
-	store, err := LoadBacenCertificates(s.cert)
-	if err != nil {
-		return fmt.Errorf("failed to load BACEN certificates: %w", err)
+	// Criar repositório de certificados (em produção, deve ser inicializado uma vez)
+	certStore := NewCertificateStore()
+	if err := certStore.LoadBacenCertificatesV2(); err != nil {
+		return err
 	}
 
 	// Obter certificado do emissor baseado no KeyInfo
-	issuerCert, err := store.GetCertificateFromKeyInfo(keyInfo)
+	issuerCert, err := certStore.GetCertificateFromKeyInfo(keyInfo)
 	if err != nil {
 		return fmt.Errorf("failed to get issuer certificate: %w", err)
 	}
 
-	if err := store.ValidateCertificate(issuerCert); err != nil {
+	if err := certStore.ValidateCertificate(issuerCert); err != nil {
 		return fmt.Errorf("certificate validation failed: %w", err)
 	}
 

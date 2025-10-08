@@ -73,39 +73,6 @@ func (cs *CertificateStore) GetCertificateFromKeyInfo(keyInfo *etree.Element) (*
 	return cert, nil
 }
 
-// LoadBacenCertificates carrega os certificados do BACEN
-// Lista automaticamente todos os arquivos .pem na pasta certs/bacen
-func (cs *CertificateStore) LoadBacenCertificates() error {
-	certsDir := "certs/bacen"
-
-	// Verifica se o diretório existe
-	if _, err := os.Stat(certsDir); os.IsNotExist(err) {
-		return fmt.Errorf("certificates directory not found: %s", certsDir)
-	}
-
-	// Lista todos os arquivos .pem no diretório
-	pemFiles, err := filepath.Glob(filepath.Join(certsDir, "*.pem"))
-	if err != nil {
-		return fmt.Errorf("failed to list certificate files in %s: %w", certsDir, err)
-	}
-
-	if len(pemFiles) == 0 {
-		return fmt.Errorf("no .pem certificate files found in %s", certsDir)
-	}
-
-	fmt.Printf("Loading BACEN certificates from %s...\n", certsDir)
-
-	for _, file := range pemFiles {
-		if err := cs.loadCertificateFile(file); err != nil {
-			return fmt.Errorf("failed to load certificate %s: %w", file, err)
-		}
-		fmt.Printf("✓ Loaded certificate: %s\n", filepath.Base(file))
-	}
-
-	fmt.Printf("Successfully loaded %d BACEN certificate(s)\n", len(pemFiles))
-	return nil
-}
-
 // LoadBacenCertificatesV2 carrega os certificados do BACEN em formato .cer
 // Lista automaticamente todos os arquivos .cer na pasta certs/bacen
 // Suporta tanto formato DER (binário) quanto PEM (texto)

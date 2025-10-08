@@ -31,17 +31,3 @@ func NewSignerFromP12(p12byte []byte, password string) (*Signer, error) {
 
 	return &Signer{privKey: rsaKey, cert: cert}, nil
 }
-
-// LoadBacenCertificates carrega os certificados raiz do BACEN.
-func LoadBacenCertificates(cert *x509.Certificate) (*CertificateStore, error) {
-	certStore := NewCertificateStore()
-
-	// Adiciona o certificado do signer (nosso) ao repositório de certificados confiáveis
-	certStore.AddCertificate(cert)
-
-	if err := certStore.LoadBacenCertificates(); err != nil {
-		return nil, err
-	}
-
-	return certStore, nil
-}

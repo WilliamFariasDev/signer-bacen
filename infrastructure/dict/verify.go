@@ -178,6 +178,7 @@ func (s *Signer) Verify(xmlData []byte) error {
 
 	// Criar repositório de certificados (em produção, deve ser inicializado uma vez)
 	certStore := NewCertificateStore()
+	certStore.AddCertificate(s.cert)
 	if err := certStore.LoadBacenCertificatesV2(); err != nil {
 		return err
 	}

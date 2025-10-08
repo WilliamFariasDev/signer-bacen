@@ -32,6 +32,8 @@ func (s *Signer) Verify(xmlData []byte) error {
 	// Realiza transform de enveloped signature
 	rootCopy := root.Copy()
 	removeSignatureElements(rootCopy)
+	// Remove espaços em branco desnecessários para compatibilidade com assinatura do BACEN
+	removeWhitespaceNodes(rootCopy)
 
 	// Realiza transform de canonicalização
 	rootCanon, err := canon.Canonicalize(rootCopy)
@@ -80,6 +82,12 @@ func (s *Signer) Verify(xmlData []byte) error {
 
 	// Realiza o transform de canonicalização
 	kiCopy := keyInfo.Copy()
+	// Garante que o namespace ds esteja declarado no KeyInfo para canonicalização
+	if kiCopy.SelectAttr("xmlns:ds") == nil {
+		kiCopy.CreateAttr("xmlns:ds", "http://www.w3.org/2000/09/xmldsig#")
+	}
+	// Remove espaços em branco desnecessários do KeyInfo
+	removeWhitespaceNodes(kiCopy)
 	kiCanon, err := canon.Canonicalize(kiCopy)
 	if err != nil {
 		return fmt.Errorf("failed to canonicalize KeyInfo: %w", err)
@@ -141,6 +149,10 @@ func (s *Signer) Verify(xmlData []byte) error {
 
 	// Realiza o transform de canonicalização de SignedInfo
 	siCopy := signedInfo.Copy()
+	// Garante que o namespace ds esteja declarado no SignedInfo para canonicalização
+	if siCopy.SelectAttr("xmlns:ds") == nil {
+		siCopy.CreateAttr("xmlns:ds", "http://www.w3.org/2000/09/xmldsig#")
+	}
 	siCanon, err := canon.Canonicalize(siCopy)
 	if err != nil {
 		return fmt.Errorf("failed to canonicalize SignedInfo: %w", err)
@@ -153,6 +165,7 @@ func (s *Signer) Verify(xmlData []byte) error {
 		return fmt.Errorf("signature value is not valid base64: %w", err)
 	}
 
+	// TODO buscar em um repositório local de certificados confiáveis, recuperar o certificado X.509 completo do emissor e então verificar a assinatura com a chave pública desse certificado
 	pub, ok := s.cert.PublicKey.(*rsa.PublicKey)
 	if !ok {
 		return errors.New("certificate does not contain an RSA public key")

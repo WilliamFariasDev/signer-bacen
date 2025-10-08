@@ -36,6 +36,27 @@ func removeSignatureElements(el *etree.Element) {
 	el.Child = newChildren
 }
 
+// removeWhitespaceNodes remove nós de texto que contêm apenas espaços em branco
+func removeWhitespaceNodes(el *etree.Element) {
+	var newChildren []etree.Token
+	for _, child := range el.Child {
+		switch c := child.(type) {
+		case *etree.Element:
+			removeWhitespaceNodes(c)
+			newChildren = append(newChildren, c)
+		case *etree.CharData:
+			// Remove apenas se for apenas espaços em branco
+			text := strings.TrimSpace(c.Data)
+			if text != "" {
+				newChildren = append(newChildren, c)
+			}
+		default:
+			newChildren = append(newChildren, c)
+		}
+	}
+	el.Child = newChildren
+}
+
 // PrintElement prints an XML element for debugging purposes.
 func PrintElement(element *etree.Element) {
 	// print element for debug

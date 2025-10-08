@@ -153,6 +153,8 @@ func (s *Signer) Verify(xmlData []byte) error {
 	if siCopy.SelectAttr("xmlns:ds") == nil {
 		siCopy.CreateAttr("xmlns:ds", "http://www.w3.org/2000/09/xmldsig#")
 	}
+	// Remove espaços em branco desnecessários do SignedInfo para compatibilidade com assinatura do BACEN
+	removeWhitespaceNodes(siCopy)
 	siCanon, err := canon.Canonicalize(siCopy)
 	if err != nil {
 		return fmt.Errorf("failed to canonicalize SignedInfo: %w", err)
@@ -160,7 +162,14 @@ func (s *Signer) Verify(xmlData []byte) error {
 
 	// Verifica a assinatura usando a chave pública do certificado
 	siHash := sha256.Sum256(siCanon)
-	sigBytes, err := base64.StdEncoding.DecodeString(signatureValue)
+
+	// Limpa SignatureValue de quebras de linha do XML
+	cleanSignatureValue := strings.ReplaceAll(signatureValue, "&#13;", "")
+	cleanSignatureValue = strings.ReplaceAll(cleanSignatureValue, "\n", "")
+	cleanSignatureValue = strings.ReplaceAll(cleanSignatureValue, "\r", "")
+	cleanSignatureValue = strings.TrimSpace(cleanSignatureValue)
+
+	sigBytes, err := base64.StdEncoding.DecodeString(cleanSignatureValue)
 	if err != nil {
 		return fmt.Errorf("signature value is not valid base64: %w", err)
 	}
@@ -188,6 +197,7 @@ func (s *Signer) Verify(xmlData []byte) error {
 	if !ok {
 		return errors.New("issuer certificate does not contain an RSA public key")
 	}
+
 	if err := rsa.VerifyPKCS1v15(pub, crypto.SHA256, siHash[:], sigBytes); err != nil {
 		return fmt.Errorf("signature verification failed: %w", err)
 	}

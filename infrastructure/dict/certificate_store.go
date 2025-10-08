@@ -27,7 +27,6 @@ func NewCertificateStore() *CertificateStore {
 // AddCertificate adiciona um certificado ao repositório
 func (cs *CertificateStore) AddCertificate(cert *x509.Certificate) {
 	key := cert.SerialNumber.String()
-	fmt.Printf("Added certificate - Serial: %s, Issuer: %s\n", key, cert.Issuer.CommonName)
 	cs.certificates[key] = cert
 }
 
@@ -63,18 +62,13 @@ func (cs *CertificateStore) GetCertificateFromKeyInfo(keyInfo *etree.Element) (*
 		return nil, errors.New("incomplete X509IssuerSerial information")
 	}
 
-	issuerStr := strings.TrimSpace(issuerName.Text())
 	serialStr := strings.TrimSpace(serialNumber.Text())
-
-	fmt.Printf("Looking for certificate - Serial: %s, Issuer: %s\n", serialStr, issuerStr)
 
 	// Busca o certificado no repositório usando apenas o serial number
 	cert, exists := cs.certificates[serialStr]
 	if !exists {
 		return nil, fmt.Errorf("certificate not found for serial: %s", serialStr)
 	}
-
-	fmt.Printf("Certificate found: %s (Serial: %s)\n", cert.Issuer.CommonName, cert.SerialNumber.String())
 
 	return cert, nil
 }
@@ -133,16 +127,12 @@ func (cs *CertificateStore) LoadBacenCertificatesV2() error {
 		return fmt.Errorf("no .cer certificate files found in %s", certsDir)
 	}
 
-	fmt.Printf("Loading BACEN certificates (.cer) from %s...\n", certsDir)
-
 	for _, file := range cerFiles {
 		if err := cs.loadCerCertificateFile(file); err != nil {
 			return fmt.Errorf("failed to load certificate %s: %w", file, err)
 		}
-		fmt.Printf("✓ Loaded certificate: %s\n", filepath.Base(file))
 	}
 
-	fmt.Printf("Successfully loaded %d BACEN certificate(s)\n", len(cerFiles))
 	return nil
 }
 
@@ -171,8 +161,6 @@ func (cs *CertificateStore) loadCertificateFile(filePath string) error {
 		}
 
 		cs.AddCertificate(cert)
-		fmt.Printf("  - Added: %s (Serial: %s)\n",
-			cert.Issuer.CommonName, cert.SerialNumber.String())
 	}
 
 	return nil
@@ -217,8 +205,6 @@ func (cs *CertificateStore) tryLoadAsPEM(certData []byte) bool {
 		}
 
 		cs.AddCertificate(cert)
-		fmt.Printf("  - Added (PEM): %s (Serial: %s)\n",
-			cert.Issuer.CommonName, cert.SerialNumber.String())
 		loaded = true
 	}
 
@@ -233,8 +219,6 @@ func (cs *CertificateStore) tryLoadAsDER(certData []byte) error {
 	}
 
 	cs.AddCertificate(cert)
-	fmt.Printf("  - Added (DER): %s (Serial: %s)\n",
-		cert.Issuer.CommonName, cert.SerialNumber.String())
 
 	return nil
 }

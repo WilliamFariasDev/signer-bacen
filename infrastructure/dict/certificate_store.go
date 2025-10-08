@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/beevik/etree"
@@ -80,31 +81,67 @@ func (cs *CertificateStore) makeCertificateKey(issuer, serial string) string {
 }
 
 // LoadBacenCertificates carrega os certificados do BACEN
-// Esta função deve ser implementada para carregar os certificados do BACEN
-// de um local seguro (arquivo, base de dados, etc.)
+// Lista automaticamente todos os arquivos .pem na pasta certs/bacen
 func (cs *CertificateStore) LoadBacenCertificates() error {
-	files := []string{
-		"../certs/bacen/example.pem",
+	certsDir := "certs/bacen"
+
+	// Verifica se o diretório existe
+	if _, err := os.Stat(certsDir); os.IsNotExist(err) {
+		return fmt.Errorf("certificates directory not found: %s", certsDir)
 	}
 
-	for _, file := range files {
-		certPEM, err := os.ReadFile(file)
-		if err != nil {
-			return fmt.Errorf("failed to read certificate file %s: %w", file, err)
+	// Lista todos os arquivos .pem no diretório
+	pemFiles, err := filepath.Glob(filepath.Join(certsDir, "*.pem"))
+	if err != nil {
+		return fmt.Errorf("failed to list certificate files in %s: %w", certsDir, err)
+	}
+
+	if len(pemFiles) == 0 {
+		return fmt.Errorf("no .pem certificate files found in %s", certsDir)
+	}
+
+	fmt.Printf("Loading BACEN certificates from %s...\n", certsDir)
+
+	for _, file := range pemFiles {
+		if err := cs.loadCertificateFile(file); err != nil {
+			return fmt.Errorf("failed to load certificate %s: %w", file, err)
+		}
+		fmt.Printf("✓ Loaded certificate: %s\n", filepath.Base(file))
+	}
+
+	fmt.Printf("Successfully loaded %d BACEN certificate(s)\n", len(pemFiles))
+	return nil
+}
+
+// loadCertificateFile carrega um arquivo de certificado individual
+func (cs *CertificateStore) loadCertificateFile(filePath string) error {
+	certPEM, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to read file: %w", err)
+	}
+
+	// Suporta múltiplos certificados em um arquivo
+	for len(certPEM) > 0 {
+		var block *pem.Block
+		block, certPEM = pem.Decode(certPEM)
+		if block == nil {
+			break
 		}
 
-		block, _ := pem.Decode(certPEM)
-		if block == nil {
-			return fmt.Errorf("failed to parse certificate PEM in file %s", file)
+		if block.Type != "CERTIFICATE" {
+			continue // Pula blocos que não são certificados
 		}
 
 		cert, err := x509.ParseCertificate(block.Bytes)
 		if err != nil {
-			return fmt.Errorf("failed to parse certificate in file %s: %w", file, err)
+			return fmt.Errorf("failed to parse certificate: %w", err)
 		}
 
 		cs.AddCertificate(cert)
+		fmt.Printf("  - Added: %s (Serial: %s)\n",
+			cert.Subject.CommonName, cert.SerialNumber.String())
 	}
+
 	return nil
 }
 

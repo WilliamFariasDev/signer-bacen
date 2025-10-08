@@ -39,6 +39,8 @@ func (s *Signer) Sign(xmlData []byte) ([]byte, error) {
 	// Realiza transform de enveloped signature
 	rootCopy := root.Copy()
 	removeSignatureElements(rootCopy)
+	// Remove espaços em branco desnecessários para consistência
+	removeWhitespaceNodes(rootCopy)
 
 	// Realiza transform de canonicalização
 	rootCanon, err := canon.Canonicalize(rootCopy)
@@ -85,6 +87,8 @@ func (s *Signer) Sign(xmlData []byte) ([]byte, error) {
 
 	// Realiza o transform de canonicalização
 	kiCopy := keyInfo.Copy()
+	// Remove espaços em branco desnecessários do KeyInfo
+	removeWhitespaceNodes(kiCopy)
 	kiCanon, err := canon.Canonicalize(kiCopy)
 	if err != nil {
 		return nil, fmt.Errorf("failed to canonicalize KeyInfo: %w", err)
@@ -123,6 +127,8 @@ func (s *Signer) Sign(xmlData []byte) ([]byte, error) {
 
 	// Canonicaliza o SignedInfo
 	siCopy := signedInfo.Copy()
+	// Remove espaços em branco desnecessários do SignedInfo
+	removeWhitespaceNodes(siCopy)
 	siCanon, err := canon.Canonicalize(siCopy)
 	if err != nil {
 		return nil, fmt.Errorf("failed to canonicalize SignedInfo: %w", err)
